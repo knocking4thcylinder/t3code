@@ -37,6 +37,7 @@ import {
   NATIVE_MAIL_SEARCH_TOOLBAR_SUPPORTED,
 } from "../layout/native-mail-search-toolbar";
 import { branchBadgeLabel, useNewTaskFlow } from "./new-task-flow-provider";
+import { useVcsTerminology } from "../../state/vcs";
 import { checkoutNewTaskBranch } from "./checkout-new-task-branch";
 
 function SelectionRow(props: {
@@ -327,8 +328,10 @@ export function NewTaskBranchPickerRouteScreen() {
           if (mountedRef.current && navigation.isFocused() && !isAtomCommandInterrupted(result)) {
             const error = squashAtomCommandFailure(result);
             Alert.alert(
-              "Could not switch branch",
-              error instanceof Error ? error.message : "The branch could not be checked out.",
+              `Could not switch ${flow.vcsTerminology.refNoun}`,
+              error instanceof Error
+                ? error.message
+                : `The ${flow.vcsTerminology.refNoun} could not be checked out.`,
             );
           }
           return;
@@ -357,6 +360,7 @@ export function NewTaskBranchPickerRouteScreen() {
       flow.selectedProject,
       flow.setBranchQuery,
       flow.workspaceMode,
+      flow.vcsTerminology,
       navigation,
       switchRef,
     ],
@@ -480,7 +484,7 @@ export function NewTaskBranchPickerRouteScreen() {
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
-            accessibilityLabel="Find a branch"
+            accessibilityLabel={`Find a ${vcsTerminology.refNoun}`}
             className="h-12 rounded-full border border-input-border bg-input px-4 font-sans text-base text-foreground"
             selectionColorClassName="accent-focus/32"
             cursorColorClassName="accent-focus"
@@ -519,7 +523,7 @@ export function NewTaskBranchPickerRouteScreen() {
                 autoCapitalize: "none",
                 hideNavigationBar: false,
                 obscureBackground: false,
-                placeholder: "Find a branch",
+                placeholder: `Find a ${vcsTerminology.refNoun}`,
                 onChangeText: (event) => {
                   flow.setBranchQuery(event.nativeEvent.text);
                 },

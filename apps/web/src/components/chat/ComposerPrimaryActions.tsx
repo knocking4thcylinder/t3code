@@ -27,6 +27,8 @@ interface ComposerPrimaryActionsProps {
   isConnecting: boolean;
   isEnvironmentUnavailable: boolean;
   isPreparingWorktree: boolean;
+  /** The project's VCS noun for a worktree; Git's is the fallback while status is unknown. */
+  workspaceNoun?: string;
   hasSendableContent: boolean;
   preserveComposerFocusOnPointerDown?: boolean;
   onPreviousPendingQuestion: () => void;
@@ -72,6 +74,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   isConnecting,
   isEnvironmentUnavailable,
   isPreparingWorktree,
+  workspaceNoun = DEFAULT_VCS_TERMINOLOGY.workspaceNoun,
   hasSendableContent,
   preserveComposerFocusOnPointerDown = false,
   onPreviousPendingQuestion,

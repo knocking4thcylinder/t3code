@@ -90,8 +90,10 @@ export function resolveContextStripLabelsCompact(input: {
     : input.neededWidth > input.availableWidth;
 }
 
-export function resolveEnvModeLabel(mode: EnvMode): string {
-  return mode === "worktree" ? "New worktree" : "Current checkout";
+export function resolveEnvModeLabel(mode: EnvMode, terminology: VcsTerminology): string {
+  return mode === "worktree"
+    ? `New ${terminology.workspaceNoun}`
+    : `Current ${terminology.currentRefFallback}`;
 }
 
 export const WORKTREE_SUBMODULES_LABELS: Record<WorktreeSubmodules, string> = {
@@ -157,8 +159,13 @@ export function resolvePreviousWorktreeSeed(input: {
   return latest === null ? null : { branch: latest.branch, worktreePath: latest.worktreePath };
 }
 
-export function resolvePreviousWorktreeLabel(seed: PreviousWorktreeSeed): string {
-  return seed.branch ? `Previous worktree (${seed.branch})` : "Previous worktree";
+export function resolvePreviousWorktreeLabel(
+  seed: PreviousWorktreeSeed,
+  terminology: VcsTerminology,
+): string {
+  return seed.branch
+    ? `Previous ${terminology.workspaceNoun} (${seed.branch})`
+    : `Previous ${terminology.workspaceNoun}`;
 }
 
 export function resolveEffectiveEnvMode(input: {
@@ -215,6 +222,7 @@ export function resolveBranchTriggerLabel(input: {
   resolvedActiveBranch: string | null;
   resolvedActiveBranchIsRemote: boolean | null;
   startFromOrigin: boolean;
+  terminology: VcsTerminology;
 }): string {
   const {
     activeWorktreePath,
@@ -222,9 +230,10 @@ export function resolveBranchTriggerLabel(input: {
     resolvedActiveBranch,
     resolvedActiveBranchIsRemote,
     startFromOrigin,
+    terminology,
   } = input;
   if (!resolvedActiveBranch) {
-    return "Select ref";
+    return `Select ${terminology.refNoun}`;
   }
   if (effectiveEnvMode === "worktree" && !activeWorktreePath) {
     const baseRef =

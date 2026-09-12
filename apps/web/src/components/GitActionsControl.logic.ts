@@ -4,9 +4,9 @@ import type {
   VcsStatusResult,
 } from "@t3tools/contracts";
 import { isTemporaryWorktreeBranch } from "@t3tools/shared/git";
+import { DEFAULT_VCS_TERMINOLOGY, type VcsTerminology } from "@t3tools/shared/vcs";
 import {
   DEFAULT_CHANGE_REQUEST_TERMINOLOGY,
-  getChangeRequestTerminology,
   type ChangeRequestTerminology,
 } from "../sourceControlPresentation";
 
@@ -59,9 +59,11 @@ export function buildGitActionProgressStages(input: {
   featureBranch?: boolean;
   shouldPushBeforePr?: boolean;
   terminology?: ChangeRequestTerminology;
+  vcsTerminology?: VcsTerminology;
 }): string[] {
   const terminology = input.terminology ?? DEFAULT_CHANGE_REQUEST_TERMINOLOGY;
-  const branchStages = input.featureBranch ? ["Preparing feature ref..."] : [];
+  const vcs = input.vcsTerminology ?? DEFAULT_VCS_TERMINOLOGY;
+  const branchStages = input.featureBranch ? [`Preparing feature ${vcs.refNoun}...`] : [];
   const pushStage = input.pushTarget ? `Pushing to ${input.pushTarget}...` : "Pushing...";
   const prStages = [
     `Preparing ${terminology.shortLabel}...`,

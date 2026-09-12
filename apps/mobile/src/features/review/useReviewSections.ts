@@ -28,8 +28,10 @@ export function useReviewSections(input: {
   readonly environmentId?: EnvironmentId;
   readonly threadId?: ThreadId;
   readonly reviewCache: ReviewCacheForThread;
+  readonly vcsKind?: VcsDriverKind | null;
 }) {
   const { environmentId, reviewCache, threadId } = input;
+  const vcsKind = input.vcsKind ?? null;
   const enabled = input.enabled ?? true;
   const selectedThread = useSelectedThreadDetail();
   const { selectedThreadCwd } = useSelectedThreadWorktree();
@@ -71,6 +73,7 @@ export function useReviewSections(input: {
         turnDiffById: reviewCache.turnDiffById,
         loadingTurnIds,
         loadingGitSections: diffPreview.isPending,
+        vcsKind,
       }),
     [
       diffPreview.isPending,
@@ -79,6 +82,7 @@ export function useReviewSections(input: {
       readyCheckpoints,
       reviewCache.gitSections,
       reviewCache.turnDiffById,
+      vcsKind,
     ],
   );
   const selectedSection = useMemo(

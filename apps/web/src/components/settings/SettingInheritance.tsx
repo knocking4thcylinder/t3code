@@ -57,7 +57,8 @@ function formatValue(key: keyof ServerSettings, value: unknown): string {
   }
   if (typeof value === "string") {
     if (key === "defaultThreadEnvMode" && (value === "local" || value === "worktree")) {
-      return resolveEnvModeLabel(value);
+      // The inheritance preview is VCS-agnostic: it has no project in hand.
+      return resolveEnvModeLabel(value, DEFAULT_VCS_TERMINOLOGY);
     }
     if (key === "worktreeSubmodules" && value in WORKTREE_SUBMODULES_LABELS) {
       return WORKTREE_SUBMODULES_LABELS[value as WorktreeSubmodules];
