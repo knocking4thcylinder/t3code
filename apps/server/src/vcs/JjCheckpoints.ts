@@ -136,6 +136,10 @@ export const makeJjCheckpointOps = (deps: JjCheckpointDeps): VcsDriver.VcsCheckp
       }
 
       yield* colocatedGitCommand(deps.process, operation, { gitDir, cwd: input.cwd }, [
+        "-c",
+        "core.fsync=objects,reference",
+        "-c",
+        "core.fsyncMethod=fsync",
         "update-ref",
         input.checkpointRef,
         change.commitId,

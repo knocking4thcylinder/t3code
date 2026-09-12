@@ -4,11 +4,13 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 
 import {
+  type ReviewDiffFileStat,
+  type ReviewDiffPreviewInput,
   type ReviewDiffPreviewSource,
   type VcsError,
   VcsProcessExitError,
 } from "@t3tools/contracts";
-import { PATCH_RENDER_PREFIX_ARGS } from "./GitVcsDriverCore.ts";
+import { parseReviewNumstat, PATCH_RENDER_PREFIX_ARGS } from "./GitVcsDriverCore.ts";
 import { EMPTY_TREE_OID, JJ_CONFLICT_PATHSPECS } from "./JjCheckpoints.ts";
 import { colocatedGitCommand } from "./JjProcess.ts";
 import type { JjChange } from "./JjVcsDriver.ts";
@@ -33,43 +35,66 @@ export type JjReviewDiffOps = Pick<
 
 const REVIEW_DIFF_PATCH_MAX_OUTPUT_BYTES = 120_000;
 const REVIEW_DIFF_FILE_MAX_OUTPUT_BYTES = 1024 * 1024;
+const REVIEW_METADATA_MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const TRUNK_REVSET = "trunk()";
 
-function hashDiff(diff: string): string {
-  return NodeCrypto.createHash("sha256").update(diff, "utf8").digest("hex");
+function hashDiff(diff: string, files: ReadonlyArray<ReviewDiffFileStat>): string {
+  return NodeCrypto.createHash("sha256")
+    .update(JSON.stringify([diff, files]), "utf8")
+    .digest("hex");
 }
 
 export const makeJjReviewDiff = (deps: JjReviewDiffDeps): JjReviewDiffOps => {
-  const runDiff = (
+  const runDiff = Effect.fn("JjVcsDriver.getDiffPreview.diff")(function* (
     operation: string,
     gitDir: string,
     cwd: string,
     range: ReadonlyArray<string>,
     ignoreWhitespace: boolean | undefined,
-  ) =>
-    colocatedGitCommand(
+    file: ReviewDiffPreviewInput["file"],
+  ) {
+    const args = [
+      "diff",
+      "--no-color",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--minimal",
+      ...PATCH_RENDER_PREFIX_ARGS,
+      "--find-renames",
+      ...(ignoreWhitespace === true ? ["--ignore-all-space"] : []),
+    ];
+    const paths = [
+      ...JJ_CONFLICT_PATHSPECS.filter((path) => !file || path !== "."),
+      ...(file
+        ? [file.path, ...(file.previousPath ? [file.previousPath] : [])].map(
+            (path) => `:(top,literal)${path}`,
+          )
+        : []),
+    ];
+    const stats = yield* colocatedGitCommand(
       deps.process,
       operation,
       { gitDir, cwd },
-      [
-        "diff",
-        "--patch",
-        "--no-color",
-        "--no-ext-diff",
-        "--no-textconv",
-        "--minimal",
-        ...PATCH_RENDER_PREFIX_ARGS,
-        "--find-renames",
-        ...(ignoreWhitespace === true ? ["--ignore-all-space"] : []),
-        ...range,
-        ...JJ_CONFLICT_PATHSPECS,
-      ],
+      [...args, "--numstat", "-z", ...range, ...paths],
+      { maxOutputBytes: REVIEW_METADATA_MAX_OUTPUT_BYTES },
+    );
+    const files = parseReviewNumstat(stats.stdout);
+    if (files.length === 0) return { stdout: "", stdoutTruncated: false, files };
+    const patch = yield* colocatedGitCommand(
+      deps.process,
+      operation,
+      { gitDir, cwd },
+      [...args, "--patch", ...range, ...paths],
       {
-        maxOutputBytes: REVIEW_DIFF_PATCH_MAX_OUTPUT_BYTES,
+        maxOutputBytes: file
+          ? REVIEW_DIFF_FILE_MAX_OUTPUT_BYTES
+          : REVIEW_DIFF_PATCH_MAX_OUTPUT_BYTES,
         outputMode: "truncate",
         appendTruncationMarker: true,
       },
     );
+    return { ...patch, files };
+  });
 
   const resolveBaseChange = Effect.fn("JjVcsDriver.getDiffPreview.resolveBase")(function* (
     cwd: string,
@@ -91,24 +116,30 @@ export const makeJjReviewDiff = (deps: JjReviewDiffDeps): JjReviewDiffOps => {
       // jj auto-snapshots, so untracked non-ignored files are already inside `@`: no index dance.
       const change = yield* deps.currentChange(input.cwd);
       const workingTreeBase = change.parentCommitIds[0] ?? EMPTY_TREE_OID;
-      const workingTreeResult = yield* runDiff(
-        operation,
-        gitDir,
-        input.cwd,
-        [workingTreeBase, change.commitId],
-        input.ignoreWhitespace,
-      );
+      const empty = { stdout: "", stdoutTruncated: false, files: [] };
+      const workingTreeResult =
+        input.file?.sourceKind === "branch-range"
+          ? empty
+          : yield* runDiff(
+              operation,
+              gitDir,
+              input.cwd,
+              [workingTreeBase, change.commitId],
+              input.ignoreWhitespace,
+              input.file,
+            );
 
       const base = yield* resolveBaseChange(input.cwd, input.baseRef);
       const baseResult =
-        base.change === null
-          ? null
+        base.change === null || input.file?.sourceKind === "working-tree"
+          ? empty
           : yield* runDiff(
               operation,
               gitDir,
               input.cwd,
               [`${base.change.commitId}...${change.commitId}`],
               input.ignoreWhitespace,
+              input.file,
             );
 
       const sources: ReadonlyArray<ReviewDiffPreviewSource> = [
@@ -121,7 +152,8 @@ export const makeJjReviewDiff = (deps: JjReviewDiffDeps): JjReviewDiffOps => {
           baseRef: "@-",
           headRef: "@",
           diff: workingTreeResult.stdout,
-          diffHash: hashDiff(workingTreeResult.stdout),
+          files: workingTreeResult.files,
+          diffHash: hashDiff(workingTreeResult.stdout, workingTreeResult.files),
           truncated: workingTreeResult.stdoutTruncated,
         },
         {
@@ -130,9 +162,10 @@ export const makeJjReviewDiff = (deps: JjReviewDiffDeps): JjReviewDiffOps => {
           title: base.change === null ? "Against base branch" : `Against ${base.label}`,
           baseRef: base.change?.commitId ?? null,
           headRef: "@",
-          diff: baseResult?.stdout ?? "",
-          diffHash: hashDiff(baseResult?.stdout ?? ""),
-          truncated: baseResult?.stdoutTruncated ?? false,
+          diff: baseResult.stdout,
+          files: baseResult.files,
+          diffHash: hashDiff(baseResult.stdout, baseResult.files),
+          truncated: baseResult.stdoutTruncated,
         },
       ];
 
