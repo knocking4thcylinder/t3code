@@ -100,9 +100,6 @@ export interface VcsWorkflowOps {
   readonly pruneWorktrees: (input: {
     readonly cwd: string;
   }) => Effect.Effect<void, GitCommandError>;
-  readonly deleteLocalBranch: (
-    input: GitVcsDriver.GitDeleteLocalBranchInput,
-  ) => Effect.Effect<void, GitCommandError>;
   readonly createRef: (
     input: VcsCreateRefInput,
   ) => Effect.Effect<VcsCreateRefResult, GitCommandError>;
@@ -424,10 +421,6 @@ export const make = Effect.gen(function* () {
     pruneWorktrees: route("GitWorkflowService.pruneWorktrees", commandRouting, {
       git: git.pruneWorktrees,
       jj: jjWorkflow.pruneWorktrees,
-    }),
-    deleteLocalBranch: route("GitWorkflowService.deleteLocalBranch", commandRouting, {
-      git: git.deleteLocalBranch,
-      jj: jjWorkflow.deleteLocalBranch,
     }),
     createRef: route("GitWorkflowService.createRef", commandRouting, {
       git: git.createRef,

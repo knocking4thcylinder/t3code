@@ -59,7 +59,6 @@ import {
   resolveThreadPullRequestBadge,
   useLinkedThreadPullRequest,
 } from "./ThreadStatusIndicators";
-import { Button } from "./ui/button";
 import { ComposerControl } from "./chat/ComposerControl";
 import { Switch } from "./ui/switch";
 import { getVirtualizedScrollFadeClassName } from "./ui/scroll-area";
@@ -843,7 +842,7 @@ export function BranchToolbarBranchSelector({
         {...composerFloatingLayerProps}
       >
         <ComboboxSearchInput
-          placeholder="Search refs..."
+          placeholder={`Search ${vcsTerminology.refNounPlural}...`}
           value={branchQuery}
           onChange={(event) => setBranchQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -866,7 +865,7 @@ export function BranchToolbarBranchSelector({
           }}
         />
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <ComboboxEmpty>No refs found.</ComboboxEmpty>
+          <ComboboxEmpty>No {vcsTerminology.refNounPlural} found.</ComboboxEmpty>
           <div className="relative min-h-0 w-full max-h-56 flex-1 overflow-hidden">
             <ComboboxListVirtualized>
               <LegendList<string>
@@ -919,15 +918,15 @@ export function BranchToolbarBranchSelector({
                       id={startFromOriginSwitchId}
                       checked={startFromOrigin}
                       size="sm"
-                      aria-label="Start worktree from origin"
+                      aria-label={`Start ${vcsTerminology.workspaceNoun} from origin`}
                       onCheckedChange={(checked) => onStartFromOriginChange(Boolean(checked))}
                     />
                   </label>
                 }
               />
               <TooltipPopup side="top">
-                Creates the worktree from the latest matching branch on origin instead of your local
-                branch.
+                Creates the {vcsTerminology.workspaceNoun} from the latest matching{" "}
+                {vcsTerminology.refNoun} on origin instead of your local {vcsTerminology.refNoun}.
               </TooltipPopup>
             </Tooltip>
           ) : null}

@@ -145,7 +145,7 @@ const MobileRunContextSelector = memo(function MobileRunContextSelector({
   const workspaceLabel = forceNewWorktree
     ? resolveEnvModeLabel("worktree", terminology)
     : envModeLocked
-      ? resolveLockedWorkspaceLabel(activeWorktreePath, effectiveEnvMode)
+      ? resolveLockedWorkspaceLabel(activeWorktreePath, effectiveEnvMode, terminology)
       : effectiveEnvMode === "worktree"
         ? resolveEnvModeLabel("worktree", terminology)
         : resolveCurrentWorkspaceLabel(activeWorktreePath, terminology);
@@ -295,7 +295,9 @@ const MobileRunContextSelector = memo(function MobileRunContextSelector({
                 ) : (
                   <FolderIcon className="size-3" />
                 )}
-                <MiddleTruncate value={resolveCurrentWorkspaceLabel(activeWorktreePath)} />
+                <MiddleTruncate
+                  value={resolveCurrentWorkspaceLabel(activeWorktreePath, terminology)}
+                />
               </span>
             </MenuRadioItem>
             <MenuRadioItem disabled={envModeLocked} value="worktree" closeOnClick>

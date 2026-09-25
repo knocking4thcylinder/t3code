@@ -1,5 +1,6 @@
 import { memo, type PointerEventHandler } from "react";
 import { ChevronDownIcon, ChevronLeftIcon } from "lucide-react";
+import { DEFAULT_VCS_TERMINOLOGY } from "@t3tools/shared/vcs";
 import { useEnvironmentIdentificationMode } from "~/hooks/useSettings";
 import { cn } from "~/lib/utils";
 import { StageBackdropButtonArt, useSidebarStageBackdropVariant } from "../SidebarStageBackdrop";
@@ -239,7 +240,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
             : isConnecting
               ? "Connecting"
               : isPreparingWorktree
-                ? "Preparing worktree"
+                ? `Preparing ${workspaceNoun}`
                 : isSendBusy
                   ? "Sending"
                   : isRunning

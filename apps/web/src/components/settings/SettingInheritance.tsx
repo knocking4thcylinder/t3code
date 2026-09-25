@@ -8,6 +8,7 @@ import {
 } from "@t3tools/contracts";
 import { CheckIcon, LayersIcon } from "lucide-react";
 import * as Equal from "effect/Equal";
+import { DEFAULT_VCS_TERMINOLOGY } from "@t3tools/shared/vcs";
 
 import { cn } from "../../lib/utils";
 import type { EnvironmentPresentation } from "../../state/environments";

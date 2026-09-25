@@ -39,8 +39,13 @@ export interface JjRefsDeps {
 
 export type JjRefsOps = Pick<
   VcsWorkflowOps,
-  "listRefs" | "createRef" | "switchRef" | "listLocalBranchNames" | "deleteLocalBranch"
+  "listRefs" | "createRef" | "switchRef" | "listLocalBranchNames"
 > & {
+  readonly deleteLocalBranch: (input: {
+    readonly cwd: string;
+    readonly refName: string;
+    readonly force?: boolean;
+  }) => Effect.Effect<void, GitCommandError>;
   readonly renameBranch: (input: {
     readonly cwd: string;
     readonly oldBranch: string;

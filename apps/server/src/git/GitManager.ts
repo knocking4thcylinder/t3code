@@ -919,12 +919,13 @@ export const findOpenPr = Effect.fn("findOpenPr")(function* (
   >,
 ) {
   const providers = yield* SourceControlProviderRegistry.SourceControlProviderRegistry;
-  for (const headSelector of headContext.headSelectors) {
-    const pullRequests = yield* (yield* providers.resolve({ cwd })).listChangeRequests({
+  const provider = yield* providers.resolve({ cwd });
+  for (const headSelector of probeableHeadSelectors(provider.kind, headContext.headSelectors)) {
+    const pullRequests = yield* provider.listChangeRequests({
       cwd,
       headSelector,
       state: "open",
-      limit: 1,
+      limit: provider.kind === "github" ? GITHUB_HEAD_BRANCH_PROBE_LIMIT : 1,
     });
     const normalizedPullRequests = pullRequests.map(toPullRequestInfo);
 
@@ -1222,7 +1223,7 @@ export const runChangeRequestStep = Effect.fn("runChangeRequestStep")(function* 
       title: generated.title,
       bodyFile,
     })
-    .pipe(Effect.ensuring(fileSystem.remove(bodyFile).pipe(Effect.catch(() => Effect.void))));
+    .pipe(Effect.ensuring(fileSystem.remove(bodyFile).pipe(Effect.ignore)));
 
   const created = yield* findOpenPr(reads.providerCwd, headContext);
   if (!created) {
@@ -1353,6 +1354,26 @@ export const make = Effect.gen(function* () {
       Effect.provideService(TextGeneration.TextGeneration, textGeneration),
     );
   const serverSettingsService = yield* ServerSettings.ServerSettingsService;
+  const projectionQuery = yield* Effect.serviceOption(
+    ProjectionSnapshotQuery.ProjectionSnapshotQuery,
+  );
+  const projectSettingsFor = Effect.fnUntraced(function* (input: {
+    readonly cwd: string;
+    readonly threadId?: ThreadId | undefined;
+  }) {
+    const settings = yield* serverSettingsService.getSettings;
+    if (!hasProjectSettingsOverrides(settings) || Option.isNone(projectionQuery)) return settings;
+    const projectId = yield* (
+      input.threadId !== undefined
+        ? projectionQuery.value
+            .getThreadShellById(input.threadId)
+            .pipe(Effect.map(Option.map((thread) => thread.projectId)))
+        : projectionQuery.value
+            .getActiveProjectByWorkspaceRoot(input.cwd)
+            .pipe(Effect.map(Option.map((project) => project.id)))
+    ).pipe(Effect.orElseSucceed(() => Option.none<ProjectId>()));
+    return resolveProjectSettings(settings, Option.getOrNull(projectId)).settings;
+  });
   const randomUUIDv4 = (cwd: string) =>
     crypto.randomUUIDv4.pipe(
       Effect.mapError(

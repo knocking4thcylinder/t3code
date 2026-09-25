@@ -289,7 +289,6 @@ export const make = Effect.gen(function* () {
     switchRef: refs.switchRef,
     renameBranch: refs.renameBranch,
     listLocalBranchNames: refs.listLocalBranchNames,
-    deleteLocalBranch: refs.deleteLocalBranch,
     fetchRemote: remotes.fetchRemote,
     remoteExists: remotes.remoteExists,
     remoteBranchExists: remotes.remoteBranchExists,

@@ -61,6 +61,10 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
   const representative = target
     ? environments.find((environment) => environment.environmentId === target.environmentId)
     : undefined;
+  const workspaceRoot =
+    scope.members.find((member) => member.environmentId === target?.environmentId)?.workspaceRoot ??
+    null;
+  const vcsTerminology = useVcsTerminology(target?.environmentId ?? null, workspaceRoot);
   const providers = representative?.serverConfig?.providers ?? EMPTY_SERVER_PROVIDERS;
   const selection = resolveDefaultProviderModelSelection(providers, settings.defaultModelSelection);
   const entries = sortProviderInstanceEntries(
@@ -232,7 +236,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             <SelectValue>
               {(value: string | null) =>
                 value === "local" || value === "worktree"
-                  ? resolveEnvModeLabel(value)
+                  ? resolveEnvModeLabel(value, vcsTerminology)
                   : unavailable
                     ? "Unavailable"
                     : "Mixed"
@@ -240,8 +244,10 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             </SelectValue>
           </SelectTrigger>
           <SelectPopup align="end" alignItemWithTrigger={false}>
-            <SelectItem value="local">{resolveEnvModeLabel("local")}</SelectItem>
-            <SelectItem value="worktree">{resolveEnvModeLabel("worktree")}</SelectItem>
+            <SelectItem value="local">{resolveEnvModeLabel("local", vcsTerminology)}</SelectItem>
+            <SelectItem value="worktree">
+              {resolveEnvModeLabel("worktree", vcsTerminology)}
+            </SelectItem>
           </SelectPopup>
         </Select>
       }

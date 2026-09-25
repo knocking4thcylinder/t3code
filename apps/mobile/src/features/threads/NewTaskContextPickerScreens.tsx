@@ -37,7 +37,6 @@ import {
   NATIVE_MAIL_SEARCH_TOOLBAR_SUPPORTED,
 } from "../layout/native-mail-search-toolbar";
 import { branchBadgeLabel, useNewTaskFlow } from "./new-task-flow-provider";
-import { useVcsTerminology } from "../../state/vcs";
 import { checkoutNewTaskBranch } from "./checkout-new-task-branch";
 
 function SelectionRow(props: {
@@ -269,7 +268,10 @@ export function NewTaskBranchPickerRouteScreen() {
   const selectingBranchNameRef = useRef<string | null>(null);
   const allowSelectionNavigationRef = useRef(false);
   const mountedRef = useRef(true);
-  const screenTitle = flow.workspaceMode === "worktree" ? "Base branch" : "Branch";
+  const screenTitle =
+    flow.workspaceMode === "worktree"
+      ? `Base ${flow.vcsTerminology.refNoun}`
+      : flow.vcsTerminology.refNounTitle;
   const usesNativeMailSearchToolbar = Platform.OS === "ios" && NATIVE_MAIL_SEARCH_TOOLBAR_SUPPORTED;
   const selectedBranchName =
     flow.selectedBranchName ??
@@ -424,12 +426,12 @@ export function NewTaskBranchPickerRouteScreen() {
           {flow.branchesLoading ? <ActivityIndicator /> : null}
           <Text className="text-center text-sm text-foreground-muted">
             {flow.branchesLoading
-              ? "Loading branches…"
+              ? `Loading ${flow.vcsTerminology.refNounPlural}…`
               : flow.branchesError
                 ? flow.branchesError
                 : flow.branchQuery
-                  ? "No matching branches"
-                  : "No branches available"}
+                  ? `No matching ${flow.vcsTerminology.refNounPlural}`
+                  : `No ${flow.vcsTerminology.refNounPlural} available`}
           </Text>
           {!flow.branchesLoading && flow.branchesError ? (
             <Pressable
@@ -484,13 +486,13 @@ export function NewTaskBranchPickerRouteScreen() {
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
-            accessibilityLabel={`Find a ${vcsTerminology.refNoun}`}
+            accessibilityLabel={`Find a ${flow.vcsTerminology.refNoun}`}
             className="h-12 rounded-full border border-input-border bg-input px-4 font-sans text-base text-foreground"
             selectionColorClassName="accent-focus/32"
             cursorColorClassName="accent-focus"
             selectionHandleColorClassName="accent-focus"
             onChangeText={flow.setBranchQuery}
-            placeholder="Find a branch"
+            placeholder={`Find a ${flow.vcsTerminology.refNoun}`}
             placeholderTextColorClassName="accent-placeholder"
             value={flow.branchQuery}
           />
@@ -510,7 +512,7 @@ export function NewTaskBranchPickerRouteScreen() {
             ? () => [
                 createNativeMailSearchToolbarItem({
                   onSearchTextChange: flow.setBranchQuery,
-                  placeholder: "Find a branch",
+                  placeholder: `Find a ${flow.vcsTerminology.refNoun}`,
                   searchTextChangeId: "new-task-branch-search-text",
                   showsSearchDismissButton: true,
                 }),
@@ -523,7 +525,7 @@ export function NewTaskBranchPickerRouteScreen() {
                 autoCapitalize: "none",
                 hideNavigationBar: false,
                 obscureBackground: false,
-                placeholder: `Find a ${vcsTerminology.refNoun}`,
+                placeholder: `Find a ${flow.vcsTerminology.refNoun}`,
                 onChangeText: (event) => {
                   flow.setBranchQuery(event.nativeEvent.text);
                 },
