@@ -164,6 +164,13 @@ For an existing Git repository, choose **Enable Jujutsu** from the repository ac
 desktop, or mobile. It keeps the Git history, remotes, and working files while adding a colocated
 Jujutsu workspace. Run it from the main checkout; Git worktrees continue to use Git.
 
+To configure one checkout on web or desktop, select it in **Settings → Source control → Repository
+configuration**. On mobile, open **Repository configuration** from the repository sheet.
+The guided controls set its commit author and email. For Jujutsu, the new-file snapshot limit
+determines which files enter T3 checkpoints; for Git, the large-file threshold controls when Git
+treats a file as binary in diffs. Git checkpoints include large files regardless of that threshold.
+Reset removes a repository override and returns to the user's Git or Jujutsu configuration.
+
 ### What is different under Jujutsu
 
 - **Git hooks do not run** for commits made through T3 Code. Hooks that read the Git index, such as
@@ -172,8 +179,8 @@ Jujutsu workspace. Run it from the main checkout; Git worktrees continue to use 
 - A change with conflicts cannot be pushed until you resolve it, and its diff shows one side of each
   conflicted file rather than the markers on disk.
 - Jujutsu refuses to snapshot a new file above `snapshot.max-new-file-size`, 1 MiB by default. That
-  file is outside checkpoints, so reverting a turn leaves it on disk. Raise the limit in your own
-  Jujutsu config if you want those files tracked.
+  file is outside checkpoints, so reverting a turn leaves it on disk. Raise the limit in repository
+  configuration if you want those files tracked.
 - A repository that is not colocated, a missing `jj`, or a version below 0.42.0 leaves source control
   actions disabled with the reason, instead of silently falling back to Git. Install or upgrade
   Jujutsu, or run `jj git init --colocate` in the repository.
