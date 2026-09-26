@@ -11,6 +11,10 @@ import {
 } from "@t3tools/shared/threadPullRequests";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import {
+  isAtomCommandInterrupted,
+  squashAtomCommandFailure,
+} from "@t3tools/client-runtime/state/runtime";
+import {
   CommonActions,
   StackActions,
   useNavigation,
@@ -42,6 +46,7 @@ import { useSelectedThreadGitActions } from "../../../state/use-selected-thread-
 import { useSelectedThreadGitState } from "../../../state/use-selected-thread-git-state";
 import { useSelectedThreadWorktree } from "../../../state/use-selected-thread-worktree";
 import { vcsEnvironment } from "../../../state/vcs";
+import { useAtomCommand } from "../../../state/use-atom-command";
 import { resolveGitOverviewReviewNavigationAction } from "./git-overview-navigation";
 import { MetaCard, SheetListRow, menuItemIconName, statusSummary } from "./gitSheetComponents";
 
@@ -76,6 +81,8 @@ export function GitOverviewSheet(props: GitOverviewSheetProps) {
   );
   const gitState = useSelectedThreadGitState();
   const gitActions = useSelectedThreadGitActions();
+  const initRepository = useAtomCommand(vcsEnvironment.init, { reportFailure: false });
+  const [isConverting, setIsConverting] = useState(false);
   const theme = useUniwindTheme();
   const foregroundColor = theme["--color-foreground"];
   const sheetColor = theme["--color-sheet"];
@@ -202,6 +209,41 @@ export function GitOverviewSheet(props: GitOverviewSheetProps) {
   );
 
   const behindCount = gitStatus.data?.behindCount ?? 0;
+  const canConvertToJj =
+    gitStatus.data?.isRepo === true &&
+    (gitStatus.data.vcs?.kind === undefined || gitStatus.data.vcs.kind === "git") &&
+    selectedThreadWorktreePath === null;
+  const convertToJj = useCallback(() => {
+    if (!selectedThreadCwd || !selectedThread || isConverting) return;
+    Alert.alert(
+      "Enable Jujutsu?",
+      "Jujutsu will use this repository's Git store. Commits, branches, remotes, and uncommitted files stay in place. Existing Git worktrees continue to use Git.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Enable Jujutsu",
+          onPress: () => {
+            setIsConverting(true);
+            void initRepository({
+              environmentId: selectedThread.environmentId,
+              input: { cwd: selectedThreadCwd, kind: "jj" },
+            }).then(async (result) => {
+              setIsConverting(false);
+              if (result._tag === "Success") {
+                await gitActions.refreshSelectedThreadGitStatus();
+              } else if (!isAtomCommandInterrupted(result)) {
+                const error = squashAtomCommandFailure(result);
+                Alert.alert(
+                  "Jujutsu initialization failed",
+                  error instanceof Error ? error.message : "An error occurred.",
+                );
+              }
+            });
+          },
+        },
+      ],
+    );
+  }, [gitActions, initRepository, isConverting, selectedThread, selectedThreadCwd]);
 
   // Deterministic pull-to-refresh state. Tying RefreshControl to the query's
   // isPending flag left the spinner stuck (the status query reports pending
@@ -260,6 +302,18 @@ export function GitOverviewSheet(props: GitOverviewSheetProps) {
               subtitle={`${behindCount} commit${behindCount === 1 ? "" : "s"} behind upstream`}
               disabled={busy || !isRepo}
               onPress={() => void gitActions.onPullSelectedThreadBranch()}
+            />
+          </>
+        ) : null}
+        {canConvertToJj ? (
+          <>
+            {Platform.OS !== "android" ? <View className="ml-12 h-px bg-border" /> : null}
+            <SheetListRow
+              icon="arrow.triangle.branch"
+              title="Enable Jujutsu"
+              subtitle="Use Jujutsu with this Git repository"
+              disabled={busy || isConverting}
+              onPress={convertToJj}
             />
           </>
         ) : null}

@@ -160,6 +160,9 @@ To pin a project, add `.t3code/vcs.json` in its root:
 Use `"jj"` to force Jujutsu, or delete the file to go back to detection. For a directory with no
 version control yet, **Initialize Jujutsu** sits alongside **Initialize Git** and runs
 `jj git init --colocate`.
+For an existing Git repository, choose **Enable Jujutsu** from the repository actions on web,
+desktop, or mobile. It keeps the Git history, remotes, and working files while adding a colocated
+Jujutsu workspace. Run it from the main checkout; Git worktrees continue to use Git.
 
 ### What is different under Jujutsu
 

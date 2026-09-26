@@ -13,6 +13,7 @@ import { runVcsDriverContractSuite } from "./testing/VcsDriverContractHarness.ts
 import {
   createJjRepo,
   describeJj,
+  JjDriverLayer,
   type JjRepoFixture,
   type JjTestCommandError,
   runGit,
@@ -32,6 +33,40 @@ const withRepo = <A, E>(
 ) => withJjRepo({ prefix: "t3-jj-driver-" }, use);
 
 describeJj("Jujutsu VCS driver contract", () => {
+  it.effect(
+    "enables colocated jj in an existing Git repository without losing history or local files",
+    () =>
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem;
+        const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-jj-convert-" });
+        yield* runGit(root, ["init", "--initial-branch=main"]);
+        yield* fileSystem.writeFileString(`${root}/committed.txt`, "committed\n");
+        yield* runGit(root, ["add", "committed.txt"]);
+        yield* runGit(root, [
+          "-c",
+          "user.name=T3 Test",
+          "-c",
+          "user.email=test@example.com",
+          "commit",
+          "-m",
+          "original",
+        ]);
+        const originalCommit = (yield* runGit(root, ["rev-parse", "HEAD"])).trim();
+        yield* fileSystem.writeFileString(`${root}/uncommitted.txt`, "local\n");
+
+        const driver = yield* JjVcsDriver.JjVcsDriver;
+        yield* driver.initRepository({ cwd: root, kind: "jj" });
+
+        assert.equal((yield* driver.detectRepository(root))?.kind, "jj");
+        assert.equal(
+          (yield* runJj(root, ["log", "-r", "main", "--no-graph", "-T", "commit_id"])).trim(),
+          originalCommit,
+        );
+        assert.equal(yield* fileSystem.readFileString(`${root}/uncommitted.txt`), "local\n");
+        assert.equal((yield* runGit(root, ["rev-parse", "HEAD"])).trim(), originalCommit);
+      }).pipe(Effect.provide(JjDriverLayer)),
+  );
+
   runVcsDriverContractSuite<never, JjContractError>({
     name: "Jujutsu",
     kind: "jj",

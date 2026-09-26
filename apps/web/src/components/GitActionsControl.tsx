@@ -982,6 +982,7 @@ export default function GitActionsControl({
   const [excludedFiles, setExcludedFiles] = useState<ReadonlySet<string>>(new Set());
   const [isEditingFiles, setIsEditingFiles] = useState(false);
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
+  const [isConvertToJjDialogOpen, setIsConvertToJjDialogOpen] = useState(false);
   const [pendingDefaultBranchAction, setPendingDefaultBranchAction] =
     useState<PendingDefaultBranchAction | null>(null);
   const activeGitActionProgressRef = useRef<ActiveGitActionProgress | null>(null);
@@ -1741,6 +1742,19 @@ export default function GitActionsControl({
           <MenuItemLabel>Publish repository...</MenuItemLabel>
         </MenuItem>
       ) : null}
+      {gitStatusForActions?.isRepo &&
+      (gitStatusForActions.vcs?.kind === undefined || gitStatusForActions.vcs.kind === "git") &&
+      !activeServerThread?.worktreePath &&
+      !activeDraftThread?.worktreePath ? (
+        <MenuItem
+          density={presentation === "menu" ? "touch" : "default"}
+          disabled={isGitActionRunning || initAction.isPending}
+          onClick={() => setIsConvertToJjDialogOpen(true)}
+        >
+          <GitBranchPlusIcon />
+          <MenuItemLabel>Enable Jujutsu...</MenuItemLabel>
+        </MenuItem>
+      ) : null}
       {gitStatusForActions?.refName === null && (
         <p className="px-2 py-1.5 text-xs text-warning">
           Create and check out a {vcsTerminology.refNoun} to enable push and pull request actions.
@@ -1761,6 +1775,32 @@ export default function GitActionsControl({
 
   return (
     <>
+      <Dialog open={isConvertToJjDialogOpen} onOpenChange={setIsConvertToJjDialogOpen}>
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>Enable Jujutsu for this Git repository?</DialogTitle>
+            <DialogDescription>
+              Jujutsu will use this repository's existing Git store. Commits, branches, remotes, and
+              uncommitted files stay in place. The main repository will open in Jujutsu mode;
+              existing Git worktrees continue to use Git.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter variant="bare">
+            <Button variant="outline" onClick={() => setIsConvertToJjDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={initAction.isPending}
+              onClick={() => {
+                setIsConvertToJjDialogOpen(false);
+                void runInit("jj");
+              }}
+            >
+              Enable Jujutsu
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
       {presentation === "menu" ? (
         !isRepo ? (
           <>

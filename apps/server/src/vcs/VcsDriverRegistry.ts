@@ -34,6 +34,7 @@ export class VcsDriverRegistry extends Context.Service<
       input: VcsDriverResolveInput,
     ) => Effect.Effect<VcsDriverHandle | null, VcsError>;
     readonly resolve: (input: VcsDriverResolveInput) => Effect.Effect<VcsDriverHandle, VcsError>;
+    readonly invalidate: (cwd: string) => Effect.Effect<void>;
   }
 >()("t3/vcs/VcsDriverRegistry") {}
 
@@ -160,6 +161,12 @@ export const make = Effect.gen(function* () {
     get,
     detect,
     resolve,
+    invalidate: (cwd) =>
+      Effect.all([
+        Cache.invalidate(detectionCache, detectionCacheKey({ cwd, requestedKind: "auto" })),
+        Cache.invalidate(detectionCache, detectionCacheKey({ cwd, requestedKind: "git" })),
+        Cache.invalidate(detectionCache, detectionCacheKey({ cwd, requestedKind: "jj" })),
+      ]).pipe(Effect.asVoid),
   });
 });
 
