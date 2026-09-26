@@ -11,7 +11,7 @@ import type * as VcsProcess from "../vcs/VcsProcess.ts";
 import { jjFailure, mapJjFailure } from "./JjFailure.ts";
 import {
   computeAheadBehindCounts,
-  refNameFromSegment,
+  resolveWorkspaceRefName,
   resolveUpstreamContext,
 } from "./JjStatus.ts";
 
@@ -390,7 +390,7 @@ export const makeJjRemotes = (deps: JjRemoteOpsDeps): JjRemoteOps => {
     const segment = yield* driver
       .currentSegment(cwd)
       .pipe(mapJjFailure(operation, cwd, "Could not read the current bookmark."));
-    const refName = refNameFromSegment(segment);
+    const refName = yield* resolveWorkspaceRefName(driver, cwd, segment);
     if (refName === null) {
       return yield* Effect.fail(
         jjFailure(
@@ -468,7 +468,7 @@ export const makeJjRemotes = (deps: JjRemoteOpsDeps): JjRemoteOps => {
       .listBookmarks(input.cwd)
       .pipe(mapJjFailure(operation, input.cwd, "Could not list Jujutsu bookmarks."));
     const refName =
-      refNameFromSegment(segment) ??
+      (yield* resolveWorkspaceRefName(driver, input.cwd, segment)) ??
       (yield* driver.resolveDefaultBookmark(input.cwd).pipe(Effect.orElseSucceed(() => null))) ??
       resolveAutoFeatureBranchName(
         bookmarks.filter((bookmark) => bookmark.remote === null).map((bookmark) => bookmark.name),

@@ -36,12 +36,12 @@ function makeLayer(input: {
 }
 
 describe("GitWorkflowService", () => {
-  it.effect("reports a non-Git VCS repository as not a Git repository", () =>
+  it.effect("recognizes a Jujutsu repository for workspace bootstrap", () =>
     Effect.gen(function* () {
       const workflow = yield* GitWorkflowService.GitWorkflowService;
       const isRepository = yield* workflow.isRepository("/jj-repo");
 
-      assert.equal(isRepository, false);
+      assert.equal(isRepository, true);
     }).pipe(
       Effect.provide(
         makeLayer({

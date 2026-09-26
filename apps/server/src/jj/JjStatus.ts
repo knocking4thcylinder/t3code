@@ -18,6 +18,7 @@ import { localBookmarkRevset, remoteBookmarkRevset } from "../vcs/JjRevset.ts";
 import type { JjSegmentRow, JjVcsDriverShape } from "../vcs/JjVcsDriver.ts";
 import type * as VcsProcess from "../vcs/VcsProcess.ts";
 import { mapJjFailure } from "./JjFailure.ts";
+import { workspaceNameForRef } from "./JjWorkspaceNaming.ts";
 
 /**
  * Copied by value from `GitVcsDriverCore.ts`: the background refresh under jj has to behave like
@@ -52,9 +53,8 @@ const EMPTY_LOCAL_STATUS = {
 } as const;
 
 /**
- * The bookmark a workspace is working under: the lexicographically first name on the LAST
- * bookmarked row of `heads(::@ & bookmarks())::@`. Both halves keep the value stable across polls,
- * which is what stops `VcsStatusBroadcaster`'s fingerprint from churning on every tick.
+ * Fallback bookmark for a workspace: the lexicographically first name on the LAST bookmarked row
+ * of `heads(::@ & bookmarks())::@`. Managed workspaces use their own bookmark when available.
  */
 export function refNameFromSegment(segment: ReadonlyArray<JjSegmentRow>): string | null {
   for (let index = segment.length - 1; index >= 0; index -= 1) {
@@ -65,6 +65,48 @@ export function refNameFromSegment(segment: ReadonlyArray<JjSegmentRow>): string
   }
   return null;
 }
+
+/** A managed workspace's bookmark wins when it shares its base commit with another bookmark. */
+export const resolveWorkspaceRefName = Effect.fn("JjStatus.resolveWorkspaceRefName")(function* (
+  driver: JjVcsDriverShape,
+  cwd: string,
+  segment: ReadonlyArray<JjSegmentRow>,
+) {
+  const fallback = refNameFromSegment(segment);
+  if (fallback === null) return null;
+  const paths = yield* driver.repoPaths(cwd).pipe(Effect.option);
+  if (paths._tag === "None" || paths.value.workspaceRoot === paths.value.mainWorkspaceRoot) {
+    return fallback;
+  }
+
+  const workspaces = yield* driver.listWorkspaces(cwd).pipe(Effect.orElseSucceed(() => []));
+  const workspaceName = workspaces.find(
+    (workspace) => workspace.root === paths.value.workspaceRoot,
+  )?.name;
+  if (workspaceName === undefined) return fallback;
+
+  for (let index = segment.length - 1; index >= 0; index -= 1) {
+    const matchingBookmark = segment[index]?.localBookmarks.find(
+      (bookmark) => workspaceNameForRef(bookmark) === workspaceName,
+    );
+    if (matchingBookmark !== undefined) return matchingBookmark;
+  }
+
+  // A different bookmark can advance nearer to @, which removes the thread bookmark from the
+  // driver's nearest-bookmarked segment. Keep the workspace identity while its bookmark remains
+  // an ancestor of this working copy.
+  const bookmarks = yield* driver.listBookmarks(cwd).pipe(Effect.orElseSucceed(() => []));
+  const workspaceBookmark = bookmarks.find(
+    (bookmark) => bookmark.remote === null && workspaceNameForRef(bookmark.name) === workspaceName,
+  );
+  if (workspaceBookmark !== undefined) {
+    const isAncestor = yield* driver
+      .countRevset(cwd, `@ & ${localBookmarkRevset(workspaceBookmark.name)}::`)
+      .pipe(Effect.orElseSucceed(() => 0));
+    if (isAncestor > 0) return workspaceBookmark.name;
+  }
+  return fallback;
+});
 
 /**
  * Work the agent committed but never bookmarked: every row of the segment below `@`. `jj new`
@@ -272,7 +314,7 @@ export const makeJjStatus = (deps: JjStatusDeps): Effect.Effect<JjStatusOps> =>
           return { isRepo: true, vcs: { kind: "jj" as const }, ...EMPTY_LOCAL_STATUS };
         }
 
-        const refName = refNameFromSegment(readings.value.segment);
+        const refName = yield* resolveWorkspaceRefName(driver, input.cwd, readings.value.segment);
         const files = readings.value.change.fileStats
           .map((file) => ({
             path: file.path,
@@ -319,7 +361,7 @@ export const makeJjStatus = (deps: JjStatusDeps): Effect.Effect<JjStatusOps> =>
         const segment = yield* driver
           .currentSegment(input.cwd)
           .pipe(Effect.orElseSucceed(() => [] as ReadonlyArray<JjSegmentRow>));
-        const refName = refNameFromSegment(segment);
+        const refName = yield* resolveWorkspaceRefName(driver, input.cwd, segment);
         if (refName === null) {
           return {
             hasUpstream: false,

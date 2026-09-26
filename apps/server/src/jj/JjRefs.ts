@@ -19,7 +19,7 @@ import type {
 import type * as VcsProcess from "../vcs/VcsProcess.ts";
 import { jjFailure, mapJjFailure } from "./JjFailure.ts";
 import { assertBookmarkUsable, trackRemoteBookmark } from "./JjRemotes.ts";
-import { refNameFromSegment, strandedSegmentRows } from "./JjStatus.ts";
+import { resolveWorkspaceRefName, strandedSegmentRows } from "./JjStatus.ts";
 import { workspaceNameForRef } from "./JjWorkspaces.ts";
 
 const LIST_REFS_SNAPSHOT_CACHE_CAPACITY = 64;
@@ -113,7 +113,7 @@ export const makeJjRefs = (deps: JjRefsDeps): Effect.Effect<JjRefsOps> =>
       const segment = yield* driver
         .currentSegment(input.cwd)
         .pipe(Effect.orElseSucceed(() => [] as ReadonlyArray<JjSegmentRow>));
-      const currentRefName = refNameFromSegment(segment);
+      const currentRefName = yield* resolveWorkspaceRefName(driver, input.cwd, segment);
 
       const workspaceRootByName = new Map(
         snapshot.workspaces.map((workspace) => [workspace.name, workspace.root] as const),

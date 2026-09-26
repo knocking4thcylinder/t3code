@@ -290,7 +290,7 @@ export const make = Effect.gen(function* () {
   return GitWorkflowService.of({
     isRepository: (cwd) =>
       registry.detect({ cwd }).pipe(
-        Effect.map((handle) => handle?.kind === "git"),
+        Effect.map((handle) => handle !== null),
         Effect.mapError(
           (cause) =>
             new GitManagerError({

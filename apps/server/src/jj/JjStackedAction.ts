@@ -33,7 +33,7 @@ import { jjFailure, mapJjFailure } from "./JjFailure.ts";
 import type { JjRemoteOps } from "./JjRemotes.ts";
 import {
   computeAheadBehindCounts,
-  refNameFromSegment,
+  resolveWorkspaceRefName,
   resolveUpstreamContext,
   strandedSegmentRows,
 } from "./JjStatus.ts";
@@ -152,7 +152,7 @@ export const makeJjStackedAction = (deps: JjStackedActionDeps): JjStackedActionO
       const segment = yield* driver
         .currentSegment(cwd)
         .pipe(Effect.orElseSucceed(() => [] as ReadonlyArray<JjSegmentRow>));
-      const initialRefName = refNameFromSegment(segment);
+      const initialRefName = yield* resolveWorkspaceRefName(driver, cwd, segment);
       const upstream =
         initialRefName === null
           ? { primaryRemote: null, hasUpstream: false, defaultBookmark: null }

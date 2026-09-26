@@ -1,6 +1,5 @@
-// @effect-diagnostics nodeBuiltinImport:off - the three exported name/path helpers are pure, so
-// they cannot take the Path service; the operations below use the injected one.
-import * as NodeCrypto from "node:crypto";
+// @effect-diagnostics nodeBuiltinImport:off - the exported path helper is pure, so it cannot take
+// the Path service; the operations below use the injected one.
 import * as NodePath from "node:path";
 
 import * as Effect from "effect/Effect";
@@ -21,34 +20,10 @@ import {
   type JjRemoteOps,
 } from "./JjRemotes.ts";
 import { strandedSegmentRows } from "./JjStatus.ts";
+import { bookmarkDigest, isT3WorkspaceName, workspaceNameForRef } from "./JjWorkspaceNaming.ts";
 
-const WORKSPACE_NAME_PREFIX = "t3-";
-const WORKSPACE_DIGEST_LENGTH = 8;
+export { isT3WorkspaceName, workspaceNameForRef } from "./JjWorkspaceNaming.ts";
 const WORKSPACE_ADD_TIMEOUT_MS = 300_000;
-const WORKSPACE_NAME_PATTERN = new RegExp(
-  `^${WORKSPACE_NAME_PREFIX}.+-[0-9a-f]{${WORKSPACE_DIGEST_LENGTH}}$`,
-);
-
-function bookmarkDigest(refName: string): string {
-  return NodeCrypto.createHash("sha256")
-    .update(refName)
-    .digest("hex")
-    .slice(0, WORKSPACE_DIGEST_LENGTH);
-}
-
-/**
- * `t3-<bookmark with "/" → "-">-<8 hex of sha256(bookmark)>`. The digest is not decoration:
- * without it `a/b` and `a-b` both map to `t3-a-b`, the second `jj workspace add` fails on the
- * duplicate name, and `listRefs` attributes one workspace root to two bookmarks.
- */
-export function workspaceNameForRef(refName: string): string {
-  return `${WORKSPACE_NAME_PREFIX}${refName.replaceAll("/", "-")}-${bookmarkDigest(refName)}`;
-}
-
-/** True for any name {@link workspaceNameForRef} could have produced. Never true for `default`. */
-export function isT3WorkspaceName(name: string): boolean {
-  return WORKSPACE_NAME_PATTERN.test(name);
-}
 
 /**
  * `<worktreesDir>/<repoName>/<refName with "/" → "-">`, the layout

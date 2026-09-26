@@ -25,7 +25,7 @@ import { makeJjPullRequestThread } from "./JjPullRequestThread.ts";
 import { makeJjRefs } from "./JjRefs.ts";
 import { makeJjRemotes } from "./JjRemotes.ts";
 import { makeJjStackedAction } from "./JjStackedAction.ts";
-import { makeJjStatus, refNameFromSegment, resolveUpstreamContext } from "./JjStatus.ts";
+import { makeJjStatus, resolveUpstreamContext, resolveWorkspaceRefName } from "./JjStatus.ts";
 import { makeJjWorkspaces } from "./JjWorkspaces.ts";
 
 const RANGE_COMMIT_SUMMARY_MAX_OUTPUT_BYTES = 64 * 1024;
@@ -167,7 +167,7 @@ export const make = Effect.gen(function* () {
         ),
       );
     const segment = yield* driver.currentSegment(cwd).pipe(Effect.orElseSucceed(() => []));
-    const refName = refNameFromSegment(segment);
+    const refName = yield* resolveWorkspaceRefName(driver, cwd, segment);
     const upstream =
       refName === null
         ? { primaryRemote: null, hasUpstream: false }

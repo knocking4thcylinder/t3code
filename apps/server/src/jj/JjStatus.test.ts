@@ -18,6 +18,7 @@ import {
 } from "../vcs/testing/JjTestSupport.ts";
 import * as VcsProcess from "../vcs/VcsProcess.ts";
 import { makeJjStatus, refNameFromSegment, type JjStatusOps } from "./JjStatus.ts";
+import { workspaceNameForRef } from "./JjWorkspaceNaming.ts";
 
 /** Counts the `jj` spawns the driver itself makes, which is what the status budget is about. */
 const countingDriverLayer = (counter: { count: number }) =>
@@ -87,6 +88,34 @@ const withRepo = <A, E>(
   );
 
 describeJj("JjStatus.localStatus", () => {
+  it.effect("keeps a managed workspace bookmark when main advances", () =>
+    withRepo({}, ({ path, root, status }) =>
+      Effect.gen(function* () {
+        const bookmark = "t3code/thread";
+        const workspacePath = path.join(path.dirname(root), "thread-workspace");
+        yield* runJj(root, ["bookmark", "create", bookmark, "-r", 'bookmarks(exact:"main")']);
+        yield* runJj(root, [
+          "workspace",
+          "add",
+          "--name",
+          workspaceNameForRef(bookmark),
+          "-m",
+          `t3:${bookmark}`,
+          "-r",
+          `bookmarks(exact:"${bookmark}")`,
+          workspacePath,
+        ]);
+
+        const local = yield* status.localStatus({ cwd: workspacePath });
+        assert.equal(local.refName, bookmark);
+
+        yield* runJj(workspacePath, ["bookmark", "move", "main", "--to", "@"]);
+        const afterMainMoves = yield* status.localStatus({ cwd: workspacePath });
+        assert.equal(afterMainMoves.refName, bookmark);
+      }),
+    ),
+  );
+
   it.effect("reports an empty working copy as clean and names the bookmark", () =>
     withRepo({}, ({ root, status }) =>
       Effect.gen(function* () {
