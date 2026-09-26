@@ -240,6 +240,36 @@ describeJj("JjStackedAction commit phase", () => {
       }),
     ),
   );
+
+  it.effect("commits and pushes the feature bookmark without moving main", () =>
+    withRepo(({ actions, driver, events, fileSystem, path, root }) =>
+      Effect.gen(function* () {
+        const mainBefore = yield* driver.changeAt(root, 'bookmarks(exact:"main")');
+        yield* runJj(root, ["bookmark", "create", "feature/commit-push", "-r", "@"]);
+        yield* fileSystem.writeFileString(path.join(root, "feature.txt"), "feature\n");
+
+        const result = yield* actions.runStackedAction(
+          runInput({ cwd: root, action: "commit_push", commitMessage: "Add feature" }),
+          reporter(events),
+        );
+
+        assert.equal(result.commit.status, "created");
+        assert.equal(result.push.status, "pushed");
+        assert.equal(result.push.branch, "feature/commit-push");
+        const bookmarks = yield* driver.listBookmarks(root);
+        const local = bookmarks.find(
+          (bookmark) => bookmark.name === "feature/commit-push" && bookmark.remote === null,
+        );
+        const remote = bookmarks.find(
+          (bookmark) => bookmark.name === "feature/commit-push" && bookmark.remote === "origin",
+        );
+        assert.isDefined(local?.target);
+        assert.equal(remote?.target, local?.target);
+        const mainAfter = yield* driver.changeAt(root, 'bookmarks(exact:"main")');
+        assert.equal(mainAfter?.commitId, mainBefore?.commitId);
+      }),
+    ),
+  );
 });
 
 describeJj("JjStackedAction partial commits", () => {
