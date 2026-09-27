@@ -58,6 +58,7 @@ import {
 } from "../Icons";
 import { RedactedSensitiveText } from "./RedactedSensitiveText";
 import { SourceControlWritingSettingsSection } from "./SourceControlWritingSettings";
+import { VcsConfigurationSettingsSection } from "./VcsConfigurationSettings";
 import {
   PolicyTooltip,
   SettingResetButton,
@@ -594,6 +595,7 @@ export function SourceControlSettingsPanel() {
       )}
 
       <SourceControlWritingSettingsSection />
+      <VcsConfigurationSettingsSection />
     </SettingsPageContainer>
   );
 }
