@@ -85,16 +85,8 @@ export function VcsConfigurationSettingsSection() {
     (scope.kind === "project" || scope.kind === "checkout") && scope.members.length === 1
       ? scope.members[0]!
       : null;
-  const status = useEnvironmentQuery(
-    member === null
-      ? null
-      : vcsEnvironment.status({
-          environmentId: member.environmentId,
-          input: { cwd: member.workspaceRoot },
-        }),
-  );
   const configuration = useEnvironmentQuery(
-    member === null || status.data?.isRepo !== true || status.data.vcs?.kind === "jj"
+    member === null
       ? null
       : vcsEnvironment.configuration({
           environmentId: member.environmentId,
@@ -131,12 +123,12 @@ export function VcsConfigurationSettingsSection() {
   };
 
   const config = configuration.data;
-  if (status.data?.vcs?.kind === "jj") return null;
+  const kind = config?.kind;
   return (
     <SettingsSection title="Repository configuration">
       {member === null ? (
         <p className="px-4 py-3 text-sm text-muted-foreground">
-          Choose one Git checkout to edit its repository configuration.
+          Choose one checkout to edit its Git or Jujutsu configuration.
         </p>
       ) : configuration.error ? (
         <p className="px-4 py-3 text-sm text-destructive">{configuration.error}</p>
@@ -167,8 +159,12 @@ export function VcsConfigurationSettingsSection() {
           <ConfigurationRow
             key={`${member.environmentId}:${member.workspaceRoot}:large:${config.largeFile.repository}:${config.largeFile.effective}`}
             setting="largeFile"
-            title="Large file diff threshold"
-            description="Git treats files above this size as binary in diffs; checkpoints still include them. Enter a size in MiB."
+            title={kind === "jj" ? "New file snapshot limit" : "Large file diff threshold"}
+            description={
+              kind === "jj"
+                ? "Files above this size stay outside Jujutsu snapshots and T3 checkpoints. Enter MiB, or 0 for no limit."
+                : "Git treats files above this size as binary in diffs; checkpoints still include them. Enter a size in MiB."
+            }
             entry={config.largeFile}
             disabled={saving}
             onWrite={onWrite}
