@@ -91,6 +91,54 @@ describeJj("JjWorkspaces.createWorktree", () => {
     ),
   );
 
+  it.effect("starts named and unnamed workspaces from a resolved commit ID", () =>
+    withRepo(({ ops, root }) =>
+      Effect.gen(function* () {
+        const commitId = (yield* runJj(root, [
+          "log",
+          "-r",
+          'bookmarks(exact:"main")',
+          "--no-graph",
+          "-T",
+          "commit_id",
+        ])).trim();
+
+        const named = yield* ops.createWorktree({
+          cwd: root,
+          refName: commitId,
+          newRefName: "topic/from-origin",
+          path: null,
+        });
+        assert.equal(named.worktree.refName, "topic/from-origin");
+        assert.equal(
+          (yield* runJj(named.worktree.path, [
+            "log",
+            "-r",
+            "@-",
+            "--no-graph",
+            "-T",
+            "commit_id",
+          ])).trim(),
+          commitId,
+        );
+
+        const unnamed = yield* ops.createWorktree({ cwd: root, refName: commitId, path: null });
+        assert.equal(unnamed.worktree.refName, commitId);
+        assert.equal(
+          (yield* runJj(unnamed.worktree.path, [
+            "log",
+            "-r",
+            "@-",
+            "--no-graph",
+            "-T",
+            "commit_id",
+          ])).trim(),
+          commitId,
+        );
+      }),
+    ),
+  );
+
   it.effect("is idempotent for the same bookmark", () =>
     withRepo(({ ops, root }) =>
       Effect.gen(function* () {

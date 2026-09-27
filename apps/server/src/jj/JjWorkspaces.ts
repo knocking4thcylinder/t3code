@@ -9,7 +9,7 @@ import type * as Path from "effect/Path";
 
 import type { VcsWorkflowOps } from "../git/GitWorkflowService.ts";
 import * as JjProcess from "../vcs/JjProcess.ts";
-import { localBookmarkRevset, splitRemoteRefName } from "../vcs/JjRevset.ts";
+import { localBookmarkRevset, refNameToRevset, splitRemoteRefName } from "../vcs/JjRevset.ts";
 import type { JjSegmentRow, JjVcsDriverShape, JjWorkspace } from "../vcs/JjVcsDriver.ts";
 import type * as VcsProcess from "../vcs/VcsProcess.ts";
 import { jjFailure, mapJjFailure } from "./JjFailure.ts";
@@ -108,7 +108,11 @@ export const makeJjWorkspaces = (deps: JjWorkspaceOpsDeps): JjWorkspaceOps => {
         });
       }
       const baseRef = remoteBase?.name ?? input.refName;
+      const baseRevset =
+        remoteBase === null ? refNameToRevset(baseRef, []) : localBookmarkRevset(baseRef);
       const targetRef = input.newRefName ?? baseRef;
+      const targetRevset =
+        input.newRefName === undefined ? baseRevset : localBookmarkRevset(targetRef);
       const workspaceName = workspaceNameForRef(targetRef);
 
       const workspaces = yield* driver
@@ -183,7 +187,7 @@ export const makeJjWorkspaces = (deps: JjWorkspaceOpsDeps): JjWorkspaceOps => {
         yield* run(
           operation,
           input.cwd,
-          ["bookmark", "create", input.newRefName, "-r", localBookmarkRevset(baseRef)],
+          ["bookmark", "create", input.newRefName, "-r", baseRevset],
           { timeoutMs: 20_000 },
         ).pipe(
           mapJjFailure(operation, input.cwd, `Could not create bookmark ${input.newRefName}.`),
@@ -210,7 +214,7 @@ export const makeJjWorkspaces = (deps: JjWorkspaceOpsDeps): JjWorkspaceOps => {
           "-m",
           `t3:${targetRef}`,
           "-r",
-          localBookmarkRevset(targetRef),
+          targetRevset,
           worktreePath,
         ],
         { timeoutMs: WORKSPACE_ADD_TIMEOUT_MS },
