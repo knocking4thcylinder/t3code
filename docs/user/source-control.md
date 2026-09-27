@@ -164,6 +164,12 @@ For an existing Git repository, choose **Enable Jujutsu** from the repository ac
 desktop, or mobile. It keeps the Git history, remotes, and working files while adding a colocated
 Jujutsu workspace. Run it from the main checkout; Git worktrees continue to use Git.
 
+To configure a Git checkout on web or desktop, select it in **Settings → Source control → Repository
+configuration**. On mobile, open **Repository configuration** from the repository sheet.
+The guided controls set its commit author, email, and large-file diff threshold. Git treats files
+above that threshold as binary in diffs; checkpoints still include them. Reset removes a repository
+override and returns to the user's Git configuration.
+
 ### What is different under Jujutsu
 
 - **Git hooks do not run** for commits made through T3 Code. Hooks that read the Git index, such as
