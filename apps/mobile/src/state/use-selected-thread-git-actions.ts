@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 
 import { EnvironmentProject, EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
@@ -39,6 +39,9 @@ export function useSelectedThreadGitActions() {
   const pull = useAtomCommand(vcsEnvironment.pull, { reportFailure: false });
   const { selectedThread, selectedThreadProject } = useThreadSelection();
   const { selectedThreadCwd, selectedThreadWorktreePath } = useSelectedThreadWorktree();
+  const [pendingWorkspaceMetadataCleanup, setPendingWorkspaceMetadataCleanup] = useState<
+    string | null
+  >(null);
   const runStackedAction = useAtomCommand(
     vcsActionManager.runStackedAction({
       environmentId: selectedThread?.environmentId ?? null,
@@ -311,44 +314,80 @@ export function useSelectedThreadGitActions() {
     const project = selectedThreadProject;
     const worktreePath = selectedThreadWorktreePath;
     if (!thread || !project || !worktreePath) {
-      return;
+      return false;
     }
-    const confirmed = await new Promise<boolean>((resolve) => {
-      Alert.alert(
-        `Remove this ${vcsTerminology.workspaceNoun}?`,
-        `${worktreePath}\n\nThe thread stays; only the ${vcsTerminology.workspaceNoun} is deleted.`,
-        [
-          { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-          { text: "Remove", style: "destructive", onPress: () => resolve(true) },
-        ],
-      );
-    });
-    if (!confirmed) {
-      return;
-    }
-    const result = await removeWorktree({
-      environmentId: thread.environmentId,
-      input: { cwd: project.workspaceRoot, path: worktreePath, force: true },
-    });
-    if (AsyncResult.isFailure(result)) {
-      const error = Cause.squash(result.cause);
-      showGitActionResult({
-        type: "error",
-        title: `Failed to remove ${vcsTerminology.workspaceNoun}`,
-        description: error instanceof Error ? error.message : "An error occurred.",
+    if (pendingWorkspaceMetadataCleanup !== worktreePath) {
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          `Remove this ${vcsTerminology.workspaceNoun}?`,
+          `${worktreePath}\n\nThe thread stays; only the ${vcsTerminology.workspaceNoun} is deleted.`,
+          [
+            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+            { text: "Remove", style: "destructive", onPress: () => resolve(true) },
+          ],
+        );
       });
-      return;
+      if (!confirmed) return false;
+
+      let result = await removeWorktree({
+        environmentId: thread.environmentId,
+        input: { cwd: project.workspaceRoot, path: worktreePath, force: false },
+      });
+      if (AsyncResult.isFailure(result)) {
+        const error = Cause.squash(result.cause);
+        const message = error instanceof Error ? error.message : "An error occurred.";
+        if (message.includes("uncommitted or unbookmarked changes")) {
+          const discard = await new Promise<boolean>((resolve) => {
+            Alert.alert(
+              `Discard changes and remove ${vcsTerminology.workspaceNoun}?`,
+              `Uncommitted or unbookmarked changes in ${worktreePath} will be lost.`,
+              [
+                { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+                { text: "Discard and remove", style: "destructive", onPress: () => resolve(true) },
+              ],
+            );
+          });
+          if (!discard) return false;
+          result = await removeWorktree({
+            environmentId: thread.environmentId,
+            input: { cwd: project.workspaceRoot, path: worktreePath, force: true },
+          });
+        }
+      }
+      if (AsyncResult.isFailure(result)) {
+        const error = Cause.squash(result.cause);
+        showGitActionResult({
+          type: "error",
+          title: `Failed to remove ${vcsTerminology.workspaceNoun}`,
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+        return false;
+      }
     }
-    await syncSelectedThreadBranchState({
+    const syncResult = await syncSelectedThreadBranchState({
       thread,
       cwd: project.workspaceRoot,
       nextThreadState: { worktreePath: null },
     });
+    if (AsyncResult.isFailure(syncResult)) {
+      setPendingWorkspaceMetadataCleanup(worktreePath);
+      const error = Cause.squash(syncResult.cause);
+      showGitActionResult({
+        type: "error",
+        title: `${vcsTerminology.workspaceNounTitle} removed, but thread update failed`,
+        description:
+          error instanceof Error ? error.message : "Try clearing the thread workspace again.",
+      });
+      return false;
+    }
+    setPendingWorkspaceMetadataCleanup(null);
     showGitActionResult({
       type: "success",
       title: `${vcsTerminology.workspaceNounTitle} removed`,
     });
+    return true;
   }, [
+    pendingWorkspaceMetadataCleanup,
     removeWorktree,
     selectedThread,
     selectedThreadProject,
@@ -446,6 +485,7 @@ export function useSelectedThreadGitActions() {
     onCreateSelectedThreadBranch,
     onCreateSelectedThreadWorktree,
     onRemoveSelectedThreadWorkspace,
+    pendingWorkspaceMetadataCleanup: pendingWorkspaceMetadataCleanup === selectedThreadWorktreePath,
     onPullSelectedThreadBranch,
     onRunSelectedThreadGitAction,
   };

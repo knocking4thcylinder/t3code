@@ -338,8 +338,8 @@ export function getGitActionDisabledReason(input: {
   const terminology = resolveChangeRequestTerminology(gitStatus);
   const hasBranch = gitStatus.refName !== null;
   const hasChanges = gitStatus.hasWorkingTreeChanges;
-  const hasOpenPr = gitStatus.pr?.state === "open";
   const isAhead = gitStatus.aheadCount > 0;
+  const hasDefaultBranchDelta = (gitStatus.aheadOfDefaultCount ?? gitStatus.aheadCount) > 0;
   const isBehind = gitStatus.behindCount > 0;
 
   if (item.id === "commit") {
@@ -368,9 +368,6 @@ export function getGitActionDisabledReason(input: {
     return "Push is currently unavailable.";
   }
 
-  if (hasOpenPr) {
-    return `View ${terminology.shortLabel} is currently unavailable.`;
-  }
   if (!hasBranch) {
     return noRefHint(gitStatus, vcs, `creating a ${terminology.singular}`);
   }
@@ -380,11 +377,11 @@ export function getGitActionDisabledReason(input: {
   if (!gitStatus.hasUpstream && !hasPrimaryRemote) {
     return `Add an "origin" remote before creating a ${terminology.singular}.`;
   }
-  if (!isAhead) {
-    return `No local commits to include in a ${terminology.singular}.`;
-  }
   if (isBehind) {
     return `${vcs.refNounTitle} is behind upstream. Pull/rebase before creating a ${terminology.singular}.`;
+  }
+  if (!hasDefaultBranchDelta) {
+    return `No local commits to include in a ${terminology.singular}.`;
   }
   return `Create ${terminology.shortLabel} is currently unavailable.`;
 }

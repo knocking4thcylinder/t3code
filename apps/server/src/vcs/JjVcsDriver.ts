@@ -353,8 +353,28 @@ export const makeVcsDriverShape = Effect.gen(function* () {
       operation,
       cwd,
       ["log", "-r", revset, "--no-graph", "--limit", "1", "-T", CHANGE_TEMPLATE],
-      { timeoutMs: 20_000, maxOutputBytes: 4 * 1024 * 1024, ignoreWorkingCopy },
+      {
+        timeoutMs: 20_000,
+        maxOutputBytes: 4 * 1024 * 1024,
+        ignoreWorkingCopy,
+        allowNonZeroExit: true,
+      },
     );
+
+    if (result.exitCode !== 0) {
+      const failureKind = VcsProcess.classifyNonZeroExit("jj", result.stderr);
+      if (failureKind === "not-found") return null;
+      return yield* Effect.fail(
+        new VcsProcessExitError({
+          operation,
+          command: "jj log",
+          cwd,
+          exitCode: result.exitCode,
+          detail: result.stderr.trim() || "jj log failed",
+          failureKind,
+        }),
+      );
+    }
 
     const line = splitLineSeparatedPaths(result.stdout, result.stdoutTruncated)[0];
     if (line === undefined) {
@@ -719,7 +739,7 @@ export const makeVcsDriverShape = Effect.gen(function* () {
       const result = yield* JjProcess.colocatedGitCommand(
         vcsProcess,
         operation,
-        { gitDir: paths.gitDir, workTree: cwd, cwd },
+        { gitDir: paths.gitDir, workTree: paths.workspaceRoot, cwd },
         ["check-ignore", "--no-index", "-z", "--stdin"],
         {
           stdin: `${chunk.join("\0")}\0`,

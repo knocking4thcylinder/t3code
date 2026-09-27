@@ -22,6 +22,25 @@ function status(overrides: Partial<VcsStatusResult> = {}): VcsStatusResult {
 }
 
 describe("the folded web behaviour", () => {
+  it("explains a disabled request using the default-branch delta and behind state", () => {
+    const item = {
+      id: "pr",
+      label: "Pull request",
+      disabled: true,
+      icon: "pr",
+      kind: "open_dialog",
+    } as const;
+    const reason = (gitStatus: VcsStatusResult) =>
+      getGitActionDisabledReason({ item, gitStatus, isBusy: false, hasPrimaryRemote: true });
+    assert.equal(
+      reason(status({ aheadCount: 0, aheadOfDefaultCount: 3, behindCount: 1 })),
+      "Branch is behind upstream. Pull/rebase before creating a pull request.",
+    );
+    assert.equal(
+      reason(status({ aheadCount: 3, aheadOfDefaultCount: 0 })),
+      "No local commits to include in a pull request.",
+    );
+  });
   it("gates the change-request item on aheadOfDefaultCount, not aheadCount", () => {
     const items = buildMenuItems(status({ aheadCount: 0, aheadOfDefaultCount: 3 }), false);
     assert.isFalse(items.find((item) => item.id === "pr")?.disabled);

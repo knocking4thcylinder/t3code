@@ -176,10 +176,16 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
               <Text className="text-foreground-secondary text-sm">{currentWorktreePath}</Text>
               <SheetActionButton
                 icon="trash"
-                label={`Remove ${vcsTerminology.workspaceNoun}`}
+                label={
+                  gitActions.pendingWorkspaceMetadataCleanup
+                    ? "Retry clearing thread workspace"
+                    : `Remove ${vcsTerminology.workspaceNoun}`
+                }
                 disabled={busy}
                 onPress={() => {
-                  void gitActions.onRemoveSelectedThreadWorkspace().then(() => navigation.goBack());
+                  void gitActions.onRemoveSelectedThreadWorkspace().then((removed) => {
+                    if (removed) navigation.goBack();
+                  });
                 }}
               />
             </View>

@@ -6592,6 +6592,7 @@ export default function ChatView(props: ChatViewProps) {
     showBranchMismatchBanner,
     systemComposerBannerItems,
     usageLimitsBanner,
+    vcsTerminology,
     wokeThreadBannerItem,
   ]);
   useEffect(() => {

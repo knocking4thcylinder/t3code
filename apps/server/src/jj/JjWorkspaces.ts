@@ -19,7 +19,7 @@ import {
   writeBookmarkUpstreamConfig,
   type JjRemoteOps,
 } from "./JjRemotes.ts";
-import { strandedSegmentRows } from "./JjStatus.ts";
+import { resolveWorkspaceRefName, strandedSegmentRows } from "./JjStatus.ts";
 import { bookmarkDigest, isT3WorkspaceName, workspaceNameForRef } from "./JjWorkspaceNaming.ts";
 
 export { isT3WorkspaceName, workspaceNameForRef } from "./JjWorkspaceNaming.ts";
@@ -172,7 +172,14 @@ export const makeJjWorkspaces = (deps: JjWorkspaceOpsDeps): JjWorkspaceOps => {
       }
 
       yield* assertBookmarkUsable(driver, operation, input.cwd, targetRef);
-      if (input.newRefName !== undefined) {
+      const localBookmarkExists =
+        input.newRefName !== undefined &&
+        (yield* driver
+          .listBookmarks(input.cwd)
+          .pipe(mapJjFailure(operation, input.cwd, "Could not list Jujutsu bookmarks."))).some(
+          (bookmark) => bookmark.remote === null && bookmark.name === input.newRefName,
+        );
+      if (input.newRefName !== undefined && !localBookmarkExists) {
         yield* run(
           operation,
           input.cwd,
@@ -306,8 +313,12 @@ export const makeJjWorkspaces = (deps: JjWorkspaceOpsDeps): JjWorkspaceOps => {
         );
       }
 
-      const segmentBookmark = segment.at(-1)?.localBookmarks.toSorted()[0];
-      if (stranded && segmentBookmark !== undefined) {
+      const segmentBookmark = yield* resolveWorkspaceRefName(driver, input.path, segment);
+      if (
+        stranded &&
+        segmentBookmark !== null &&
+        workspaceNameForRef(segmentBookmark) === matched.name
+      ) {
         // `jj workspace add -r <bookmark>` leaves the bookmark on the base, so the agent's own
         // commits sit on no ref. Moving the bookmark to `@-` first is the jj spelling of what
         // git's worktree branch does for free; a failure here must not block the removal.

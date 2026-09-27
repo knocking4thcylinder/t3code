@@ -52,7 +52,7 @@ export function isJjVersionSupported(version: string): boolean {
 }
 
 /**
- * Probes `jj --version` at most once per server lifetime. Takes a cwd because jj refuses to run
+ * Caches a supported `jj --version` result. Takes a cwd because jj refuses to run
  * without a valid existing working directory, even for `--version`; callers always have a resolved
  * workspace root in hand.
  */
@@ -97,7 +97,9 @@ export const makeJjAvailability = Effect.gen(function* () {
           return raced.value;
         }
         const availability = yield* probe(cwd);
-        yield* Ref.set(cached, Option.some(availability));
+        if (availability._tag === "available") {
+          yield* Ref.set(cached, Option.some(availability));
+        }
         return availability;
       }),
     );

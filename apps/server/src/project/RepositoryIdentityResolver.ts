@@ -104,11 +104,18 @@ function buildRepositoryIdentity(input: {
   };
 }
 
-function isDirectorySync(candidate: string): boolean {
+function statMarker(candidate: string): NodeFS.Stats | null {
   try {
-    return NodeFS.statSync(candidate).isDirectory();
-  } catch {
-    return false;
+    return NodeFS.statSync(candidate);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error.code === "ENOENT" || error.code === "ENOTDIR")
+    ) {
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -121,18 +128,19 @@ function isDirectorySync(candidate: string): boolean {
 export function resolveRepositoryRootFromMarkers(cwd: string): string | null {
   let current = cwd;
   for (;;) {
-    if (isDirectorySync(NodePath.join(current, ".jj"))) {
+    if (statMarker(NodePath.join(current, ".jj"))?.isDirectory()) {
       const repoPointer = NodePath.join(current, ".jj", "repo");
-      if (isDirectorySync(repoPointer)) {
+      if (statMarker(repoPointer)?.isDirectory()) {
         return current;
       }
+      const pointerContents = NodeFS.readFileSync(repoPointer, "utf8");
       try {
-        return mainWorkspaceRootFromRepoPointer(current, NodeFS.readFileSync(repoPointer, "utf8"));
+        return mainWorkspaceRootFromRepoPointer(current, pointerContents);
       } catch {
         return current;
       }
     }
-    if (NodeFS.existsSync(NodePath.join(current, ".git"))) {
+    if (statMarker(NodePath.join(current, ".git")) !== null) {
       return null;
     }
     const parent = NodePath.dirname(current);
@@ -143,11 +151,20 @@ export function resolveRepositoryRootFromMarkers(cwd: string): string | null {
   }
 }
 
+function resolveRepositoryRootFromReadableMarkers(cwd: string): string | null {
+  try {
+    return resolveRepositoryRootFromMarkers(cwd);
+  } catch {
+    // A marker is unreadable; let git resolve the repository from cwd.
+    return null;
+  }
+}
+
 const resolveRepositoryIdentityCacheKey = Effect.fn("RepositoryIdentityResolver.resolveCacheKey")(
   function* (cwd: string) {
     const processRunner = yield* ProcessRunner.ProcessRunner;
 
-    const jjRoot = resolveRepositoryRootFromMarkers(cwd);
+    const jjRoot = resolveRepositoryRootFromReadableMarkers(cwd);
     if (jjRoot !== null) {
       return jjRoot;
     }

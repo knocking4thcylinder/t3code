@@ -186,6 +186,14 @@ describeJj("JjVcsDriver reads", () => {
     ),
   );
 
+  it.effect("reports a missing revision as no change", () =>
+    withRepo(({ driver, root }) =>
+      Effect.gen(function* () {
+        assert.equal(yield* driver.changeAt(root, "missing-bookmark-name"), null);
+      }),
+    ),
+  );
+
   it.effect("falls back to a local main bookmark when trunk resolves to nothing", () =>
     withRepo(({ driver, fileSystem, path, root }) =>
       Effect.gen(function* () {

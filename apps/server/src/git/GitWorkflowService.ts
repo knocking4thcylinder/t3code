@@ -119,7 +119,7 @@ type WorkflowKind = "git" | "jj";
 export class GitWorkflowService extends Context.Service<
   GitWorkflowService,
   VcsWorkflowOps & {
-    /** Git specifically, not "a repository this service can serve": a jj workspace answers false. */
+    /** Whether a Git or Jujutsu driver owns this directory. */
     readonly isRepository: (cwd: string) => Effect.Effect<boolean, GitManagerServiceError>;
   }
 >()("t3/git/GitWorkflowService") {}
@@ -290,7 +290,7 @@ export const make = Effect.gen(function* () {
   return GitWorkflowService.of({
     isRepository: (cwd) =>
       registry.detect({ cwd }).pipe(
-        Effect.map((handle) => handle !== null),
+        Effect.map((handle) => handle !== null && handle.kind !== "unknown"),
         Effect.mapError(
           (cause) =>
             new GitManagerError({

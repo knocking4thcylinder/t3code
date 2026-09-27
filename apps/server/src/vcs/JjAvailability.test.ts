@@ -90,6 +90,41 @@ describe("makeJjAvailability", () => {
       assert.equal(calls.count, 1);
     }).pipe(Effect.provide(versionProcess("jj 0.42.0\n", calls)));
   });
+
+  it.effect("reprobes after an unavailable version becomes supported", () => {
+    let version = "jj 0.41.9\n";
+    const calls = { count: 0 };
+    const process = Layer.mock(VcsProcess.VcsProcess)({
+      run: () =>
+        Effect.sync(() => {
+          calls.count++;
+          return {
+            exitCode: ChildProcessSpawner.ExitCode(0),
+            stdout: version,
+            stderr: "",
+            stdoutTruncated: false,
+            stderrTruncated: false,
+          };
+        }),
+    });
+    return Effect.gen(function* () {
+      const availability = yield* JjAvailability.makeJjAvailability;
+      assert.deepStrictEqual(yield* availability("/repo"), {
+        _tag: "unsupported-version",
+        version: "0.41.9",
+      });
+      version = "jj 0.42.0\n";
+      assert.deepStrictEqual(yield* availability("/repo"), {
+        _tag: "available",
+        version: "0.42.0",
+      });
+      assert.deepStrictEqual(yield* availability("/other"), {
+        _tag: "available",
+        version: "0.42.0",
+      });
+      assert.equal(calls.count, 2);
+    }).pipe(Effect.provide(process));
+  });
 });
 
 describe("jjUnsupportedReason", () => {

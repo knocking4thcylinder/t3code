@@ -40,9 +40,9 @@ export function localBookmarkRevset(name: string): string {
   return `bookmarks(exact:"${escapeRevsetString(name)}")`;
 }
 
-/** `<name>@<remote>` is the only form jj accepts for a remote bookmark. */
+/** Quoted `<name>@<remote>` keeps bookmark punctuation out of the revset grammar. */
 export function remoteBookmarkRevset(remote: string, name: string): string {
-  return `${name}@${remote}`;
+  return `"${escapeRevsetString(name)}"@"${escapeRevsetString(remote)}"`;
 }
 
 /**

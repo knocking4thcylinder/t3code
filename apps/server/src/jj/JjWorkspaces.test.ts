@@ -222,7 +222,8 @@ describeJj("JjWorkspaces.createWorktree", () => {
         yield* fileSystem.remove(destination);
         const retried = yield* ops.createWorktree({
           cwd: root,
-          refName: "feat/blocked",
+          refName: "main",
+          newRefName: "feat/blocked",
           path: destination,
         });
         assert.equal(retried.worktree.refName, "feat/blocked");
@@ -291,7 +292,7 @@ describeJj("JjWorkspaces.removeWorktree", () => {
         const created = yield* ops.createWorktree({
           cwd: root,
           refName: "main",
-          newRefName: "feat/committed",
+          newRefName: "topic/committed",
           path: null,
         });
         yield* fileSystem.writeFileString(`${created.worktree.path}/agent.txt`, "work\n");
@@ -306,17 +307,53 @@ describeJj("JjWorkspaces.removeWorktree", () => {
 
         assert.isFalse(yield* fileSystem.exists(created.worktree.path));
         const listed = yield* refs.listRefs({ cwd: root, refresh: true });
-        const bookmark = listed.refs.find((ref) => ref.name === "feat/committed");
+        const bookmark = listed.refs.find((ref) => ref.name === "topic/committed");
         assert.isDefined(bookmark);
         const described = yield* runJj(root, [
           "log",
           "-r",
-          'bookmarks(exact:"feat/committed")',
+          'bookmarks(exact:"topic/committed")',
           "--no-graph",
           "-T",
           "description",
         ]);
         assert.include(described, "agent work");
+      }),
+    ),
+  );
+
+  it.effect("never advances main when the workspace bookmark was removed", () =>
+    withRepo(({ fileSystem, ops, root }) =>
+      Effect.gen(function* () {
+        const created = yield* ops.createWorktree({
+          cwd: root,
+          refName: "main",
+          newRefName: "topic/removed",
+          path: null,
+        });
+        const originalMain = yield* runJj(root, [
+          "log",
+          "-r",
+          'bookmarks(exact:"main")',
+          "--no-graph",
+          "-T",
+          "commit_id",
+        ]);
+        yield* runJj(root, ["bookmark", "delete", "topic/removed"]);
+        yield* fileSystem.writeFileString(`${created.worktree.path}/agent.txt`, "work\n");
+        yield* runJj(created.worktree.path, ["commit", "-m", "agent work"]);
+
+        yield* ops.removeWorktree({ cwd: root, path: created.worktree.path, force: true });
+
+        const currentMain = yield* runJj(root, [
+          "log",
+          "-r",
+          'bookmarks(exact:"main")',
+          "--no-graph",
+          "-T",
+          "commit_id",
+        ]);
+        assert.equal(currentMain, originalMain);
       }),
     ),
   );

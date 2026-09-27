@@ -23,8 +23,9 @@ describe("JjRevset", () => {
   });
 
   it("converts a remote ref to jj's name@remote form", () => {
-    assert.equal(refNameToRevset("origin/main", ["origin"]), "main@origin");
-    assert.equal(remoteBookmarkRevset("upstream", "feature/x"), "feature/x@upstream");
+    assert.equal(refNameToRevset("origin/main", ["origin"]), '"main"@"origin"');
+    assert.equal(remoteBookmarkRevset("upstream", "feature/x"), '"feature/x"@"upstream"');
+    assert.equal(remoteBookmarkRevset('fork"team', "release:next"), '"release:next"@"fork\\"team"');
   });
 
   it("converts a bookmark name to an exact bookmark revset", () => {
