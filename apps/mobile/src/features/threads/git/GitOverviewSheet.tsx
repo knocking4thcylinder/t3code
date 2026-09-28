@@ -157,11 +157,7 @@ export function GitOverviewSheet(props: GitOverviewSheetProps) {
   const [configurationOpen, setConfigurationOpen] = useState(false);
   const [configurationSaving, setConfigurationSaving] = useState(false);
   const configuration = useEnvironmentQuery(
-    configurationOpen &&
-      selectedThread !== null &&
-      selectedThreadCwd !== null &&
-      gitStatus.data?.isRepo === true &&
-      gitStatus.data.vcs?.kind !== "jj"
+    configurationOpen && selectedThread !== null && selectedThreadCwd !== null
       ? vcsEnvironment.configuration({
           environmentId: selectedThread.environmentId,
           input: { cwd: selectedThreadCwd },
@@ -448,7 +444,7 @@ export function GitOverviewSheet(props: GitOverviewSheetProps) {
             })
           }
         />
-        {isRepo && gitStatus.data?.vcs?.kind !== "jj" ? (
+        {isRepo ? (
           <>
             {Platform.OS !== "android" ? <View className="ml-12 h-px bg-border" /> : null}
             <SheetListRow
@@ -482,8 +478,16 @@ export function GitOverviewSheet(props: GitOverviewSheetProps) {
                   />
                   <ConfigurationField
                     key={`${selectedThread?.environmentId}:${selectedThreadCwd}:large:${configuration.data.largeFile.repository}:${configuration.data.largeFile.effective}`}
-                    label="Large file diff threshold"
-                    detail="Git treats files above this size as binary in diffs. Enter MiB."
+                    label={
+                      configuration.data.kind === "jj"
+                        ? "New file snapshot limit"
+                        : "Large file diff threshold"
+                    }
+                    detail={
+                      configuration.data.kind === "jj"
+                        ? "Files above this size stay outside snapshots and checkpoints. Enter MiB, or 0 for no limit."
+                        : "Git treats files above this size as binary in diffs. Enter MiB."
+                    }
                     entry={configuration.data.largeFile}
                     setting="largeFile"
                     disabled={configurationSaving}
